@@ -1,0 +1,57 @@
+{% extends "web/base.html" %}
+{% block title %}Источники — Студия{% endblock %}
+{% block content %}
+{% include "studio/_nav.html" with page="Источники" %}
+<div class="container" style="padding:24px 0;max-width:960px">
+  <h1 style="font-size:22px;font-weight:800;margin-bottom:12px">Источники</h1>
+
+  <form method="post" style="display:grid;grid-template-columns:1fr 2fr 100px 120px 120px;gap:10px;align-items:end;margin-bottom:16px">
+    {% csrf_token %}
+    <label>Название<br><input name="name" required style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px"></label>
+    <label>RSS URL<br><input name="rss_url" required placeholder="https://..." style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px"></label>
+    <label>Язык<br>
+      <select name="lang" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px">
+        <option value="ru" selected>ru</option>
+        <option value="kz">kz</option>
+        <option value="en">en</option>
+      </select>
+    </label>
+    <label>Приоритет<br><input type="number" name="priority" value="5" min="1" max="10" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px"></label>
+    <div>
+      <label style="display:flex;gap:6px;align-items:center;margin-bottom:8px">
+        <input type="checkbox" name="enabled" checked> Включён
+      </label>
+      <button class="btn btn--orange" type="submit">Добавить</button>
+    </div>
+  </form>
+
+  <table class="tbl">
+    <thead><tr><th>Вкл</th><th>Название</th><th>RSS</th><th>Язык</th><th>Приоритет</th></tr></thead>
+    <tbody>
+      {% for s in items %}
+        <tr>
+          <td>{{ s.enabled|yesno:"✓,–" }}</td>
+          <td>{{ s.name }}</td>
+          <td><a href="{{ s.rss_url }}" target="_blank">{{ s.rss_url }}</a></td>
+          <td>{{ s.lang }}</td>
+          <td>{{ s.priority }}</td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5">Пока пусто — добавь хотя бы один RSS-источник выше.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<style>
+.tbl {
+  width:100%;
+  border-collapse:collapse
+}
+.tbl th,.tbl td {
+  padding:10px;
+  border-bottom:1px solid #eee;
+  text-align:left;
+  font-size:14px
+}
+</style>
+{% endblock %}

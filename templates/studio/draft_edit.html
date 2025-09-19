@@ -1,0 +1,45 @@
+{% extends "web/base.html" %}
+{% block title %}Редактирование — Студия{% endblock %}
+{% block content %}
+{% include "studio/_nav.html" with page="Редактирование" %}
+<div class="container" style="padding:24px 0;max-width:960px">
+  <a href="/studio/drafts/" style="color:#777">← к черновикам</a>
+  <h1 style="font-size:22px;font-weight:800;margin:10px 0 8px">Редактирование черновика</h1>
+  <div style="color:#777;font-size:13px">{{ it.source_name }} — <a href="{{ it.url }}" target="_blank">источник</a></div>
+
+  <form method="post" style="margin-top:16px">
+    {% csrf_token %}
+    <label>Заголовок<br><input name="title" value="{{ it.title|escape }}" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px"></label><br><br>
+    <label>Лид<br><textarea name="lead" rows="3" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px">{{ it.lead|escape }}</textarea></label><br><br>
+    <label>Текст (HTML)<br><textarea id="body" name="body_html" rows="18" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px">{{ it.body_html|safe }}</textarea></label><br><br>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn" type="submit">Сохранить</button>
+      <button class="btn btn--orange" type="button" onclick="publishDraft({{ it.id }})">Опубликовать</button>
+      <button class="btn" type="button" onclick="doAction({{ it.id }},'improve')">Improve</button>
+      <button class="btn" type="button" onclick="doAction({{ it.id }},'shorten')">Shorten</button>
+      <button class="btn" type="button" onclick="doAction({{ it.id }},'expand')">Expand</button>
+      <button class="btn" type="button" onclick="doAction({{ it.id }},'regenerate')">Regenerate</button>
+    </div>
+  </form>
+</div>
+<script>
+async function doAction(id, action){
+  const res = await fetch(`/studio/api/draft/${id}/action/`, {
+    method: 'POST',
+    headers: {'X-CSRFToken': getCookie('csrftoken')},
+    body: new URLSearchParams({action})
+  });
+  if (res.ok) location.reload();
+}
+async function publishDraft(id){
+  const res = await fetch(`/studio/api/draft/${id}/publish/`, {
+    method: 'POST',
+    headers: {'X-CSRFToken': getCookie('csrftoken')}
+  });
+  if (res.ok) { alert('Опубликовано'); location.href='/news/'; }
+}
+function getCookie(name) {
+  const m=document.cookie.match('(^|;)\\s*'+name+'\\s*=\\s*([^;]+)');return m?m.pop():'';
+}
+</script>
+{% endblock %}

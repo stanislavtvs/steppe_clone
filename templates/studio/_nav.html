@@ -1,0 +1,21 @@
+{% load static %}
+
+<link rel="stylesheet" href="/static/css/_nav.css">
+
+<div class="studio-bar">
+  <div class="container studio-bar__inner">
+    <div class="studio-bar__left">
+      {% with back=request.META.HTTP_REFERER %}
+        <a class="btn btn--ghost" href="{{ back|default:'/studio/' }}" onclick="history.back(); return false;">← Назад</a>
+      {% endwith %}
+      <span class="studio-bar__title">{{ page|default:"Студия" }}</span>
+    </div>
+
+    <nav class="studio-tabs" aria-label="Навигация студии">
+      <a href="/studio/" class="{% if request.path == '/studio/' %}is-active{% endif %}">Дашборд</a>
+      <a href="/studio/sources/" class="{% if '/studio/sources' in request.path %}is-active{% endif %}">Источники</a>
+      <a href="/studio/inbox/"    class="{% if '/studio/inbox'   in request.path %}is-active{% endif %}">Инбокс</a>
+      <a href="/studio/drafts/"   class="{% if '/studio/drafts'  in request.path %}is-active{% endif %}">AI-черновики</a>
+    </nav>
+  </div>
+</div>

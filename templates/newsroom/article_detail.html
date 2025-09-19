@@ -1,0 +1,43 @@
+{% load static %}
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="/static/css/article_detail.css">
+  <title>Новость — пример</title>
+</head>
+<body>
+  <div class="page">
+    <div class="controls-ponel"></div>
+    <main>
+      <img class="hero" src="https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Ftse4.mm.bing.net%2Fth%2Fid%2FOIP.u53CUTMSvssrxc304r5ADgHaEK%3Fpid%3DApi&f=1&ipt=1b39723f0f08c9054ea89f288ac2f1342e4ebd3c57bd5327021382e99f225bc8&ipo=images" alt="Обложка новости" />
+
+      <div id="read-container" class="read-aloud" aria-live="polite"></div>
+      <div class="meta">
+        <span class="badge">Новости</span>
+        <span></span>
+        <time class="date" datetime="{{ news.published_at|date:'c' }}">
+          {{ news.published_at|date:"j E, Y"|capfirst }}
+        </time>
+      </div>
+
+      <h1>{{ news.title|safe }}</h1>
+
+      <p class="lead">
+        {{ news.lead|safe }}
+      </p>
+
+      <hr>
+
+      <section class="content">
+          {{ news.body_html|safe }}
+      </section>
+    </main>
+    <div id="read-container" class="read-aloud" aria-live="polite"></div>
+  </div>
+
+  <script src="/static/js/a11y-panel.js"></script>
+  <script src="/static/js/voice-assistant.js"></script>
+</body>
+</html>

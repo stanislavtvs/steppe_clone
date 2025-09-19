@@ -1,0 +1,38 @@
+{% extends "web/base.html" %}
+{% block title %}Новости — STEPPE (клон){% endblock %}
+{% block content %}
+{% load static %}
+<section class="container feed">
+
+  <div class="va-news-ui">
+    <button id="va-news-toggle" type="button">🎙 Запустить голос</button>
+    <span id="va-news-status" aria-live="polite">Отключено</span>
+  </div>
+
+  {% for new in articles %}
+
+  <article>
+    <a class="post__thumb" href="/news/{{ new.slug }}/">
+      <img src="https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Ftse4.mm.bing.net%2Fth%2Fid%2FOIP.u53CUTMSvssrxc304r5ADgHaEK%3Fpid%3DApi&f=1&ipt=1b39723f0f08c9054ea89f288ac2f1342e4ebd3c57bd5327021382e99f225bc8&ipo=images" alt="Обложка">
+    </a>
+
+    <div class="post__body">
+      <a href="#" class="post__tag">НОВОСТИ</a>
+      <h2 class="post__title"><a href="/news/{{ new.slug }}/">{{ new.title }}</a></h2>
+      <p class="post__lead">{{ new.lead }}</p>
+      <div class="post__meta">
+      <time datetime="{{ new.published_at|date:'c' }}">
+        {{ new.published_at|date:"j E, Y"|capfirst }}
+      </time>
+        <span class="post__sep">·</span>
+        <a href="#" class="post__author">Мадияр Аубакиров</a>
+      </div>
+    </div>
+  </article>
+<hr class="feed__sep">
+  {% endfor %}
+
+<script src="/static/js/tts.js"></script>
+
+</section>
+{% endblock %}

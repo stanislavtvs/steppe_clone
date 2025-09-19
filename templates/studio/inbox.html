@@ -1,0 +1,28 @@
+{% extends "web/base.html" %}
+{% block title %}Инбокс — Студия{% endblock %}
+{% block content %}
+{% include "studio/_nav.html" with page="Инбокс" %}
+<div class="container" style="padding:24px 0">
+  <h1 style="font-size:22px;font-weight:800;margin-bottom:12px">Инбокс</h1>
+  <ul style="list-style:none;padding:0;margin:0">
+    {% for it in items %}
+      <li style="padding:12px 0;border-bottom:1px solid #eee">
+        <div style="display:flex;justify-content:space-between;gap:12px;align-items:center">
+          <div>
+            <div style="font-weight:600">{{ it.title|default:"(без заголовка)" }}</div>
+            <div style="color:#777;font-size:13px">
+              <a href="{{ it.url }}" target="_blank">{{ it.url }}</a> — {{ it.source.name }}
+            </div>
+          </div>
+          <form method="post" action="/studio/api/inbox/{{ it.id }}/generate/">
+            {% csrf_token %}
+            <button class="btn btn--orange" type="submit">Сгенерировать черновик</button>
+          </form>
+        </div>
+      </li>
+    {% empty %}
+      <li>Пусто.</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endblock %}

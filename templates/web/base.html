@@ -1,0 +1,19 @@
+<!doctype html>
+{% load static %}
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}STEPPE — клон{% endblock %}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <link href="/static/css/base.css" rel="stylesheet">
+</head>
+<body>
+  {% include "partials/header.html" %}
+  <main id="content">
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="container" style="border-top:1px solid var(--line); margin-top:40px; padding:24px 0; color:#8b8b8b; font-size:14px">
+    © STEPPE (MVP)
+  </footer>
+</body>
+</html>

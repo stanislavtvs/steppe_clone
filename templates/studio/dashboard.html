@@ -1,0 +1,48 @@
+{% extends "web/base.html" %}
+{% block title %}Студия — Dashboard{% endblock %}
+{% block content %}
+{% include "studio/_nav.html" with page="Дашборд" %}
+<div class="container" style="padding:24px 0">
+  <h1 style="font-size:24px;font-weight:800;margin:0 0 12px">Студия</h1>
+
+  <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:18px">
+    <a class="tile" href="/studio/sources/">Источники ({{ sources_count }})</a>
+    <a class="tile" href="/studio/inbox/">Инбокс ({{ inbox_count }})</a>
+    <a class="tile" href="/studio/drafts/">AI-черновики ({{ drafts_count }})</a>
+  </div>
+
+  <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap">
+    <form method="post" action="/studio/api/harvest-now/">
+      {% csrf_token %}
+      <button class="btn" type="submit">Собрать источники сейчас</button>
+    </form>
+
+    <form method="post" action="/studio/api/generate-now/" style="display:flex;gap:8px;align-items:center">
+      {% csrf_token %}
+      <label>Лимит:
+        <input type="number" name="limit" value="3" min="1" max="20" style="width:70px;padding:6px;border:1px solid #ddd;border-radius:8px">
+      </label>
+      <label>Язык:
+        <select name="lang" style="padding:6px;border:1px solid #ddd;border-radius:8px">
+          <option value="ru" selected>ru</option>
+          <option value="kz">kz</option>
+        </select>
+      </label>
+      <button class="btn btn--orange" type="submit">Сгенерировать черновики</button>
+    </form>
+  </div>
+</div>
+<style>
+.tile {
+  display:inline-block;
+  padding:14px 18px;
+  border:1px solid #e5e5e5;
+  border-radius:12px;
+  box-shadow:0 8px 24px rgba(0,0,0,.06)
+}
+.tile:hover {
+  text-decoration:none;
+  box-shadow:0 10px 30px rgba(0,0,0,.1)
+}
+</style>
+{% endblock %}

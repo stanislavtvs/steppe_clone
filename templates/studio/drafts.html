@@ -1,0 +1,18 @@
+{% extends "web/base.html" %}
+{% block title %}AI-черновики — Студия{% endblock %}
+{% block content %}
+{% include "studio/_nav.html" with page="AI-черновики" %}
+<div class="container" style="padding:24px 0">
+  <h1 style="font-size:22px;font-weight:800;margin-bottom:12px">AI-черновики</h1>
+  <ul style="list-style:none;padding:0;margin:0">
+    {% for it in items %}
+      <li style="padding:12px 0;border-bottom:1px solid #eee">
+        <a href="/studio/drafts/{{ it.id }}/" style="font-weight:700">{{ it.title }}</a>
+        <div style="color:#777;font-size:13px">{{ it.source_name }} — <a href="{{ it.url }}" target="_blank">источник</a></div>
+      </li>
+    {% empty %}
+      <li>Пусто.</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endblock %}
