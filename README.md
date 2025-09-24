@@ -85,6 +85,28 @@ python -m celery -A steppe_clone worker -l INFO -P solo
 python -m celery -A steppe_clone beat -l INFO
 ```
 
+### 6.4.2 Environment variables (.env)
+Создайте файл .env в корне проекта и добавьте:
+```bash
+DJANGO_SECRET_KEY='django-insecure-k$_xsw60&x2f7lun*#zfduh++su_)gr0*o54tbz@rwd7+q-=fm'
+DJANGO_DEBUG=True
+DJANGO_ALLOWED_HOSTS=*
+LLM_BASE_URL=http://localhost:11434/v1
+LLM_MODEL=gemma3:12b
+LLM_API_KEY=ollama
+```
+Примечание: значение DJANGO_SECRET_KEY заключено в кавычки для корректного
+парсинга символов $ и #.
+
+### 6.4.3 Install Ollama and download model
+1) Скачайте и установите Ollama: https://ollama.ai/download
+2) Загрузите модель gemma3:12b:
+```bash
+ollama pull gemma3:12b
+```
+
+Если на Linux служба не стартует сама, запустите: ollama serve &
+
 ### 6.5 Run Django
 ```bash
 python manage.py runserver
