@@ -141,7 +141,7 @@
   function extractNumberSec(q){ const m=q.match(/через\s+(\d{1,3})\s*(секунд(?:ы|а)?|минут(?:ы|а)?)?/i); if(!m) return null; const n=parseInt(m[1],10); const unit=(m[2]||'').toLowerCase(); return n*(TIME_UNITS[unit]||1); }
 
   function extractNumber(text){
-    const m=text.match(/(\d{1,3})(?:\s*%| процент| процентов)?/i);
+    const m=text.match(/(\d{1,3})(?:\s*%| процент| процентов)?.*/i);
     if(m) return parseInt(m[1],10);
     for(const [k,v] of Object.entries(NUMBER_WORDS)) if(text.includes(k)) return v;
     return null;
@@ -156,106 +156,106 @@
   function stopAllSpeech(){ try{ speechSynthesis.cancel(); }catch{} btn.ttsStop?.click(); paraUtterance=null; paraPausedManually=false; paragraphMode=false; clearWordHighlight(); }
 
   function isCommandPhrase(q){
-    return /(стоп|остановись|пауза|продолжи|читай|прочитай|озвучь|сначала|с начала|с текущего места|начало|пропусти абзац|следующий абзац|прошлый абзац|предыдущий абзац|вверх|вниз|прокрут|масштаб|шрифт|тема|картин|изображен|контраст|сепия|темн|светл|на главную|назад|домой)/.test(q);
+    return /.*(стоп|остановись|пауза|продолжи|читай|прочитай|озвучь|сначала|с начала|с текущего места|начало|пропусти абзац|следующий абзац|прошлый абзац|предыдущий абзац|вверх|вниз|прокрут|масштаб|шрифт|тема|картин|изображен|контраст|сепия|темн|светл|на главную|назад|домой).*/.test(q);
   }
 
   function handleCommand(raw){
     const q = normalize(raw);
     const finish = (msg)=>{ setStatus(msg); return msg; };
 
-    if (/^(читай|читать) с начала$|^сначала читай$|^озвучь начал[оа]$/.test(q)){
+    if (/.*^(читай|читать) с начала$|^сначала читай$|^озвучь начал[оа]$.*/.test(q)){
       cancelPendingStop(); clearParaHighlight(); clearWordHighlight();
       paragraphMode=false; paraPausedManually=false; ttsStop(); ttsPlay();
       return finish('Чтение с начала');
     }
 
-    if (/^(читай|читать) с текущего места$|^продолжи чтение$/.test(q)){
+    if (/.*^(читай|читать) с текущего места$|^продолжи чтение$.*/.test(q)){
       cancelPendingStop();
       if (paragraphMode && (paraPausedManually || speechSynthesis.paused)){ ttsPlay(); return finish('Абзац: продолжить'); }
       const idx=getHighlightedParagraphIndex(); if(idx>=0){ readParagraphAt(idx); return finish('Чтение выделенного абзаца'); }
       clearParaHighlight(); ttsPlay(); return finish('Чтение с текущего места');
     }
 
-    if (/^(пропусти абзац|следующий абзац)$/.test(q)){
+    if (/.*^(пропусти абзац|следующий абзац)$.*/.test(q)){
       cancelPendingStop(); const paras=getParagraphs(); if(!paras.length) return finish('Нет абзацев');
       const hasCur=!!readRoot.querySelector('.va-paragraph-current'); paraIndex=hasCur?Math.min(paraIndex+1,paras.length-1):0;
       paraPausedManually=false; readParagraphAt(paraIndex);
       return finish(`Абзац ${paraIndex+1}/${paras.length}`);
     }
 
-    if (/^(прошлый абзац|предыдущий абзац)$/.test(q)){
+    if (/.*^(прошлый абзац|предыдущий абзац)$.*/.test(q)){
       cancelPendingStop(); const paras=getParagraphs(); if(!paras.length) return finish('Нет абзацев');
       const hasCur=!!readRoot.querySelector('.va-paragraph-current'); paraIndex=hasCur?Math.max(paraIndex-1,0):0;
       paraPausedManually=false; readParagraphAt(paraIndex);
       return finish(`Абзац ${paraIndex+1}/${paras.length}`);
     }
 
-    if (/^остановись через\b/.test(q)){
+    if (/.*^остановись через\b.*/.test(q)){
       const sec=extractNumberSec(q); if(!sec) return finish('Не понял интервал');
       cancelPendingStop(); if(autoStopTimer){ clearTimeout(autoStopTimer); autoStopTimer=null; }
       autoStopTimer=setTimeout(()=>{ stopAllSpeech(); clearParaHighlight(); setStatus('Остановлено по таймеру'); }, sec*1000);
       return finish(`Остановлюсь через ${sec} сек`);
     }
-    if (/^через\s+\d/.test(q) && hasPendingStop()){
+    if (/.*^через\s+\d.*/.test(q) && hasPendingStop()){
       const sec=extractNumberSec('остановись '+q); cancelPendingStop(); if(!sec) return finish('Не понял интервал');
       if(autoStopTimer){ clearTimeout(autoStopTimer); autoStopTimer=null; }
       autoStopTimer=setTimeout(()=>{ stopAllSpeech(); clearParaHighlight(); setStatus('Остановлено по таймеру'); }, sec*1000);
       return finish(`Остановлюсь через ${sec} сек`);
     }
 
-    if (/^(озвуч(ь|ить)|прочитай|прочесть)$/.test(q)){
+    if (/.*^(озвуч(ь|ить)|прочитай|прочесть)$.*/.test(q)){
       cancelPendingStop();
       if (paragraphMode && (paraPausedManually || speechSynthesis.paused)){ ttsPlay(); return finish('Абзац: продолжить'); }
       const idx=getHighlightedParagraphIndex(); if(idx>=0){ readParagraphAt(idx); return finish('Чтение выделенного абзаца'); }
       clearParaHighlight(); clearWordHighlight(); paragraphMode=false; paraPausedManually=false; ttsPlay(); return finish('Озвучка: старт');
     }
-    if (/пауза|приостанови/.test(q)){ cancelPendingStop(); ttsPause(); return finish('Пауза'); }
-    if (/^(стоп|остановись)$/.test(q)){ armStopPending(); return finish('Жду уточнения…'); }
-    if (/(^стоп\b|^останови(?!сь через)|^остановись(?! через))/.test(q)){ cancelPendingStop(); stopAllSpeech(); clearParaHighlight(); return finish('Озвучка: стоп'); }
+    if (/.*пауза|приостанови.*/.test(q)){ cancelPendingStop(); ttsPause(); return finish('Пауза'); }
+    if (/.*^(стоп|остановись)$.*/.test(q)){ armStopPending(); return finish('Жду уточнения…'); }
+    if (/.*(^стоп\b|^останови(?!сь через)|^остановись(?! через)).*/.test(q)){ cancelPendingStop(); stopAllSpeech(); clearParaHighlight(); return finish('Озвучка: стоп'); }
 
-    if (/(увелич(ь|и)|больше).*(шрифт|текст)|шрифт (больше|прибавь|плюс)/.test(q)) return finish(nudgeFont(+0.05),'Шрифт +');
-    if (/(уменьш(и|ь)|меньше).*(шрифт|текст)|шрифт (меньше|убавь|минус)/.test(q)) return finish(nudgeFont(-0.05),'Шрифт −');
-    if (/сброс(ить)? (масштаб|шрифт)|верни (масштаб|шрифт) (1|один)/.test(q)||/шрифт 100/.test(q)) { setFontScale(1); return finish('Сброс шрифта'); }
-    if (/(шрифт|масштаб|зум)/.test(q)){ const n=extractNumber(q); if(n&&n>=50&&n<=300){ setFontScale(n/100); return finish(`Шрифт ${n}%`);} }
+    if (/.*(увелич(ь|и)|больше).*(шрифт|текст)|шрифт (больше|прибавь|плюс).*/.test(q)) return finish(nudgeFont(+0.05),'Шрифт +');
+    if (/.*(уменьш(и|ь)|меньше).*(шрифт|текст)|шрифт (меньше|убавь|минус).*/.test(q)) return finish(nudgeFont(-0.05),'Шрифт −');
+    if (/.*сброс(ить)? (масштаб|шрифт)|верни (масштаб|шрифт) (1|один).*/.test(q)||/шрифт 100/.test(q)) { setFontScale(1); return finish('Сброс шрифта'); }
+    if (/.*(шрифт|масштаб|зум).*/.test(q)){ const n=extractNumber(q); if(n&&n>=50&&n<=300){ setFontScale(n/100); return finish(`Шрифт ${n}%`);} }
 
-    if (/(темная|тёмная) тема|ночн(ая|ой)/.test(q)) { setTheme('dark'); return finish('Тема: тёмная'); }
-    if (/син(яя|е-темная|е темная) тема|сине.*темн/.test(q)) { setTheme('blue'); return finish('Тема: синяя/тёмная'); }
-    if (/сепия/.test(q)) { setTheme('sepia'); return finish('Тема: сепия'); }
-    if (/контраст(ная)?/.test(q)) { setTheme('contrast'); return finish('Тема: контраст'); }
-    if (/(обычн|светл(ая|ая тема)|дефолт|стандартная тема)/.test(q)) { setTheme('default'); return finish('Тема: обычная'); }
+    if (/.*(темная|тёмная) тема|ночн(ая|ой).*/.test(q)) { setTheme('dark'); return finish('Тема: тёмная'); }
+    if (/.*син(яя|е-темная|е темная) тема|сине.*темн.*/.test(q)) { setTheme('blue'); return finish('Тема: синяя/тёмная'); }
+    if (/.*сепия/.test(q)) { setTheme('sepia'); return finish('Тема: сепия'); }
+    if (/.*контраст(ная)?/.test(q)) { setTheme('contrast'); return finish('Тема: контраст'); }
+    if (/.*(обычн|светл(ая|ая тема)|дефолт|стандартная тема).*/.test(q)) { setTheme('default'); return finish('Тема: обычная'); }
 
-    if (/(включи|покажи).*(картинк|изображен)/.test(q)) { setImages(true); return finish('Изображения: ВКЛ'); }
-    if (/(выключи|скрой).*(картинк|изображен)/.test(q)) { setImages(false); return finish('Изображения: ВЫКЛ'); }
+    if (/.*(выключи|скрой|отключи).*(картинк|изображен).*/.test(q)) { setImages(false); return finish('Изображения: ВЫКЛ'); }
+    if (/.*(ключи|покажи).*(картинк|изображен)/.test(q)) { setImages(true); return finish('Изображения: ВКЛ'); }
 
-    if (/меж(ду)?строчн(ый|ый интервал)?.*(большой)/.test(q)) { setLineHeight('lg'); return finish('Междустрочный: большой'); }
-    if (/меж(ду)?строчн(ый)?.*(средн)/.test(q)) { setLineHeight('md'); return finish('Междустрочный: средний'); }
-    if (/меж(ду)?строчн(ый)?.*(стандарт|обычн)/.test(q)) { setLineHeight('std'); return finish('Междустрочный: стандартный'); }
-    if (/межбуквенн(ый)?.*(двойн|два)/.test(q)) { setTracking('2'); return finish('Межбуквенный: двойной'); }
-    if (/межбуквенн(ый)?.*(полутор|полторы)/.test(q)) { setTracking('1.5'); return finish('Межбуквенный: полуторный'); }
-    if (/межбуквенн(ый)?.*(увеличен|больше)/.test(q)) { setTracking('1'); return finish('Межбуквенный: увеличенный'); }
-    if (/межбуквенн(ый)?.*(обычн|стандарт)/.test(q)) { setTracking('0'); return finish('Межбуквенный: обычный'); }
-    if (/шрифт.*без засеч/.test(q)||/санс|sans/.test(q)) { setFontFamily('без засечек'); return finish('Шрифт: без засечек'); }
-    if (/шрифт.*с засеч/.test(q)||/сериф|serif/.test(q)) { setFontFamily('с засечками'); return finish('Шрифт: с засечками'); }
-    if (/моно(ширинн)?|mono/.test(q)) { setFontFamily('моноширинный'); return finish('Шрифт: моноширинный'); }
+    if (/.*меж(ду)?строчн(ый|ый интервал)?.*(большой).*/.test(q)) { setLineHeight('lg'); return finish('Междустрочный: большой'); }
+    if (/.*меж(ду)?строчн(ый)?.*(средн)/.test(q)) { setLineHeight('md'); return finish('Междустрочный: средний'); }
+    if (/.*меж(ду)?строчн(ый)?.*(стандарт|обычн).*/.test(q)) { setLineHeight('std'); return finish('Междустрочный: стандартный'); }
+    if (/.*межбуквенн(ый)?.*(двойн|два)/.test(q)) { setTracking('2'); return finish('Межбуквенный: двойной'); }
+    if (/.*межбуквенн(ый)?.*(полутор|полторы).*/.test(q)) { setTracking('1.5'); return finish('Межбуквенный: полуторный'); }
+    if (/.*межбуквенн(ый)?.*(увеличен|больше).*/.test(q)) { setTracking('1'); return finish('Межбуквенный: увеличенный'); }
+    if (/.*межбуквенн(ый)?.*(обычн|стандарт).*/.test(q)) { setTracking('0'); return finish('Межбуквенный: обычный'); }
+    if (/.*шрифт.*без засеч/.test(q)||/санс|sans.*/.test(q)) { setFontFamily('без засечек'); return finish('Шрифт: без засечек'); }
+    if (/.*шрифт.*с засеч/.test(q)||/сериф|serif.*/.test(q)) { setFontFamily('с засечками'); return finish('Шрифт: с засечками'); }
+    if (/.*моно(ширинн)?|mono/.test(q)) { setFontFamily('моноширинный'); return finish('Шрифт: моноширинный'); }
 
-    if (/(показать|открыть).*доп(олнительно)?/.test(q)) { toggleSub(true); return finish('Дополнительно: открыто'); }
-    if (/(скрыть|закрыть).*доп(олнительно)?/.test(q)) { toggleSub(false); return finish('Дополнительно: закрыто'); }
-    if (/(переключить|дополнительно)/.test(q)) { toggleSub(); return finish('Дополнительно: переключено'); }
+    if (/.*(показать|открыть).*доп(олнительно)?.*/.test(q)) { toggleSub(true); return finish('Дополнительно: открыто'); }
+    if (/.*(скрыть|закрыть).*доп(олнительно)?.*/.test(q)) { toggleSub(false); return finish('Дополнительно: закрыто'); }
+    if (/.*(переключить|дополнительно).*/.test(q)) { toggleSub(); return finish('Дополнительно: переключено'); }
 
-    if (/(в самый низ|в конец|вниз до конца)/.test(q)) { scrollToBottom(); return finish('Скролл: в самый низ'); }
-    if (/(в самый верх|наверх|в начало)/.test(q)) { scrollToTop(); return finish('Скролл: в самый верх'); }
-    if (/(авто|плавно).*(прокрут|скролл).*(вниз)/.test(q)) { startAutoScroll(+1,1); return finish('Автоскролл вниз'); }
-    if (/(авто|плавно).*(прокрут|скролл).*(вверх)/.test(q)) { startAutoScroll(-1,1); return finish('Автоскролл вверх'); }
-    if (/(стоп|останови).*(прокрут|скролл)/.test(q)) { stopAutoScroll(); return finish('Автоскролл: стоп'); }
-    if (/(вниз|прокрут(и|ка) вниз)/.test(q)){ const n=extractNumber(q); if(/%|процент/.test(q)&&n){ doScroll(Math.round(innerHeight*(n/100))); return finish(`Скролл вниз на ${n}%`);} scrollDownScreens(n||1); return finish(`Скролл вниз на ${(n||1)} экран(а)`); }
-    if (/(вверх|прокрут(и|ка) вверх)/.test(q)){ const n=extractNumber(q); if(/%|процент/.test(q)&&n){ doScroll(-Math.round(innerHeight*(n/100))); return finish(`Скролл вверх на ${n}%`);} scrollUpScreens(n||1); return finish(`Скролл вверх на ${(n||1)} экран(а)`); }
+    if (/.*(в самый низ|в конец|вниз до конца).*/.test(q)) { scrollToBottom(); return finish('Скролл: в самый низ'); }
+    if (/.*(в самый верх|наверх|в начало).*/.test(q)) { scrollToTop(); return finish('Скролл: в самый верх'); }
+    if (/.*(авто|плавно).*(прокрут|скролл).*(вниз).*/.test(q)) { startAutoScroll(+1,1); return finish('Автоскролл вниз'); }
+    if (/.*(авто|плавно).*(прокрут|скролл).*(вверх).*/.test(q)) { startAutoScroll(-1,1); return finish('Автоскролл вверх'); }
+    if (/.*(стоп|останови).*(прокрут|скролл).*/.test(q)) { stopAutoScroll(); return finish('Автоскролл: стоп'); }
+    if (/.*(вниз|прокрут(и|ка) вниз).*/.test(q)){ const n=extractNumber(q); if(/%|процент/.test(q)&&n){ doScroll(Math.round(innerHeight*(n/100))); return finish(`Скролл вниз на ${n}%`);} scrollDownScreens(n||1); return finish(`Скролл вниз на ${(n||1)} экран(а)`); }
+    if (/.*(вверх|прокрут(и|ка) вверх).*/.test(q)){ const n=extractNumber(q); if(/%|процент/.test(q)&&n){ doScroll(-Math.round(innerHeight*(n/100))); return finish(`Скролл вверх на ${n}%`);} scrollUpScreens(n||1); return finish(`Скролл вверх на ${(n||1)} экран(а)`); }
 
-    if (/(назад|вернись назад|шаг назад)/.test(q)) { if(history.length>1) history.back(); else location.assign((location.origin||'/')+'/'); return finish('Навигация: назад'); }
-    if (/(вперед|вперёд)($| по истории)/.test(q)) { history.forward(); return finish('Навигация: вперёд'); }
-    if (/(на главную|домой|главная страница)/.test(q)) { location.assign((location.origin||'/')+'/'); return finish('Навигация: на главную'); }
+    if (/.*(назад|вернись назад|шаг назад).*/.test(q)) { if(history.length>1) history.back(); else location.assign((location.origin||'/')+'/'); return finish('Навигация: назад'); }
+    if (/.*(вперед|вперёд)($| по истории).*/.test(q)) { history.forward(); return finish('Навигация: вперёд'); }
+    if (/.*(на главную|домой|главная страница).*/.test(q)) { location.assign((location.origin||'/')+'/'); return finish('Навигация: на главную'); }
 
-    if (/верни .*масштаб.*(1|один)/.test(q)) { setFontScale(1); return finish('Масштаб = 1'); }
-    if (/зум|масштаб/.test(q)){ const n=extractNumber(q); if(n&&n>=50&&n<=300){ setFontScale(n/100); return finish(`Масштаб ${n}%`);} }
+    if (/.*верни .*масштаб.*(1|один).*/.test(q)) { setFontScale(1); return finish('Масштаб = 1'); }
+    if (/.*зум|масштаб.*/.test(q)){ const n=extractNumber(q); if(n&&n>=50&&n<=300){ setFontScale(n/100); return finish(`Масштаб ${n}%`);} }
 
     return finish('Команда не распознана');
   }
