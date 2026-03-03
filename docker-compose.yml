@@ -3,6 +3,7 @@ version: '3.8'
 services:
   db:
     image: postgres:15
+    restart: always
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
@@ -12,9 +13,11 @@ services:
 
   redis:
     image: redis:alpine
+    restart: always
 
   web:
     build: .
+    restart: always
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - .:/app
@@ -30,6 +33,7 @@ services:
 
   worker:
     build: .
+    restart: always
     command: celery -A steppe_clone worker -l info
     volumes:
       - .:/app
