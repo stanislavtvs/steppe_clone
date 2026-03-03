@@ -10,12 +10,8 @@ from apps.pipeline.urltools import normalize_url
 from apps.pipeline.models import InboxItem, AIDraft
 from apps.newsroom.models import Article
 from apps.pipeline.llm import (
-    client,
     generate_news_json,
     prompt_action_json,
-    _coerce_json,
-    SYS_EDITOR,
-    MODEL,
 )
 
 def staff_required(view):
@@ -107,34 +103,70 @@ def generate_one(request, pk):
 @login_required
 @staff_required
 @require_POST
+# def draft_action(request, pk):
+#     """Improve / Shorten / Expand / Regenerate — тоже через JSON."""
+#     it = get_object_or_404(AIDraft, pk=pk, published=False)
+#     action = request.POST.get("action")
+#     lang = request.POST.get("lang", it.lang or "ru")
+
+#     prompt = prompt_action_json(action, it.title or "", it.lead or "", it.body_html or "", lang=lang)
+#     out = client.chat.completions.create(
+#         model=MODEL,
+#         messages=[{"role": "system", "content": SYS_EDITOR},
+#                   {"role": "user", "content": prompt}],
+#         temperature=0.3,
+#         max_tokens=1200,
+#     ).choices[0].message.content
+
+#     try:
+#         data = _coerce_json(out)
+#         it.title = (data.get("title") or it.title)[:200]
+#         it.lead = data.get("lead", it.lead)
+#         it.body_html = data.get("body_html", it.body_html)
+#         if data.get("tags"):
+#             it.tags = data["tags"]
+#         it.lang = lang
+#         it.save()
+#         return JsonResponse({"ok": True})
+#     except Exception:
+#         return JsonResponse({"ok": False, "error": "LLM вернул не-JSON"}, status=400)
 def draft_action(request, pk):
-    """Improve / Shorten / Expand / Regenerate — тоже через JSON."""
+    """Improve / Shorten / Expand / Regenerate — теперь через Gemini."""
     it = get_object_or_404(AIDraft, pk=pk, published=False)
     action = request.POST.get("action")
     lang = request.POST.get("lang", it.lang or "ru")
 
-    prompt = prompt_action_json(action, it.title or "", it.lead or "", it.body_html or "", lang=lang)
-    out = client.chat.completions.create(
-        model=MODEL,
-        messages=[{"role": "system", "content": SYS_EDITOR},
-                  {"role": "user", "content": prompt}],
-        temperature=0.3,
-        max_tokens=1200,
-    ).choices[0].message.content
-
+    # В новой версии функция prompt_action_json уже сама делает запрос к Gemini
+    # и возвращает словарь {"lead": "...", "body_html": "..."}
     try:
-        data = _coerce_json(out)
-        it.title = (data.get("title") or it.title)[:200]
-        it.lead = data.get("lead", it.lead)
-        it.body_html = data.get("body_html", it.body_html)
-        if data.get("tags"):
-            it.tags = data["tags"]
+        data = prompt_action_json(
+            action=action, 
+            title=it.title or "", 
+            lead=it.lead or "", 
+            body_html=it.body_html or "", 
+            target_lang=lang
+        )
+        
+        # Обновляем поля черновика из полученных данных
+        # Обратите внимание: prompt_action_json по умолчанию меняет lead и body_html
+        if data.get("lead"):
+            it.lead = data["lead"]
+        if data.get("body_html"):
+            it.body_html = data["body_html"]
+        
+        # Если ваша LLM умеет менять заголовок или теги в этом действии, 
+        # можно добавить и их, но обычно action меняет только текст.
+        if data.get("title"):
+            it.title = data["title"][:200]
+            
         it.lang = lang
         it.save()
+        
         return JsonResponse({"ok": True})
-    except Exception:
-        return JsonResponse({"ok": False, "error": "LLM вернул не-JSON"}, status=400)
-
+        
+    except Exception as e:
+        print(f"Ошибка при обработке действия {action}: {e}")
+        return JsonResponse({"ok": False, "error": "Ошибка при работе нейросети"}, status=400)
 
 @login_required
 @staff_required

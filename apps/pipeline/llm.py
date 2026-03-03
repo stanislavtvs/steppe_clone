@@ -3,14 +3,17 @@ import re
 import json
 from typing import Dict, Any
 from openai import OpenAI
+import google.generativeai as genai
 
-LLM_MODEL = os.getenv("LLM_MODEL", "llama3:8b")
-LLM_BASE_URL = os.getenv("LLM_BASE_URL", "http://localhost:11434/v1")
-LLM_API_KEY = os.getenv("LLM_API_KEY", "ollama")
+# LLM_MODEL = os.getenv("LLM_MODEL", "llama3:8b")
+# LLM_BASE_URL = os.getenv("LLM_BASE_URL", "http://localhost:11434/v1")
+# LLM_API_KEY = os.getenv("LLM_API_KEY", "ollama")
 
 
-client = OpenAI(base_url=LLM_BASE_URL, api_key=LLM_API_KEY)
+# client = OpenAI(base_url=LLM_BASE_URL, api_key=LLM_API_KEY)
 
+genai.configure(api_key=os.getenv("API_KEY"))
+model = genai.GenerativeModel('gemini-2.5-flash') # или gemini-1.5-pro
 
 def _extract_json_block(s: str) -> str:
     """
@@ -37,18 +40,53 @@ def _extract_json_block(s: str) -> str:
     return s
 
 
+# def _json_loads_loose(s: str) -> Dict[str, Any]:
+#     """
+#     Пытается распарсить JSON:
+#     1) прямой json.loads
+#     2) извлечь {...} + заменить «умные» кавычки
+#     3) попросить LLM починить до строгого JSON (верни только JSON)
+#     """
+#     try:
+#         return json.loads(s)
+#     except Exception:
+#         pass
+
+#     s2 = _extract_json_block(s)
+#     s2 = s2.replace("“", '"').replace("”", '"').replace("’", "'")
+#     try:
+#         return json.loads(s2)
+#     except Exception:
+#         pass
+
+#     fix = client.chat.completions.create(
+#         model=LLM_MODEL,
+#         messages=[
+#             {"role": "system", "content": "Приведи вход к СТРОГОМУ JSON. Верни только JSON-объект."},
+#             {"role": "user", "content": s2},
+#         ],
+#         temperature=0,
+#         response_format={"type": "json_object"},
+#         extra_body={"format": "json"},
+#     ).choices[0].message.content or "{}"
+
+#     fix = _extract_json_block(fix)
+#     return json.loads(fix)
+
 def _json_loads_loose(s: str) -> Dict[str, Any]:
     """
     Пытается распарсить JSON:
     1) прямой json.loads
     2) извлечь {...} + заменить «умные» кавычки
-    3) попросить LLM починить до строгого JSON (верни только JSON)
+    3) попросить Gemini починить до строгого JSON
     """
+    # 1. Простая попытка
     try:
         return json.loads(s)
     except Exception:
         pass
 
+    # 2. Очистка и вторая попытка
     s2 = _extract_json_block(s)
     s2 = s2.replace("“", '"').replace("”", '"').replace("’", "'")
     try:
@@ -56,19 +94,27 @@ def _json_loads_loose(s: str) -> Dict[str, Any]:
     except Exception:
         pass
 
-    fix = client.chat.completions.create(
-        model=LLM_MODEL,
-        messages=[
-            {"role": "system", "content": "Приведи вход к СТРОГОМУ JSON. Верни только JSON-объект."},
-            {"role": "user", "content": s2},
-        ],
-        temperature=0,
-        response_format={"type": "json_object"},
-        extra_body={"format": "json"},
-    ).choices[0].message.content or "{}"
-
-    fix = _extract_json_block(fix)
-    return json.loads(fix)
+    # 3. Использование Gemini для исправления
+    try:
+        # Предполагается, что модель инициализирована ранее: 
+        # model = genai.GenerativeModel('gemini-1.5-flash')
+        
+        prompt = f"Приведи вход к СТРОГОМУ JSON. Верни только JSON-объект. Входные данные: {s2}"
+        
+        response = model.generate_content(
+            prompt,
+            generation_config=genai.GenerationConfig(
+                response_mime_type="application/json",
+                temperature=0
+            )
+        )
+        
+        fix = response.text or "{}"
+        fix = _extract_json_block(fix)
+        return json.loads(fix)
+    except Exception as e:
+        print(f"Ошибка Gemini при исправлении JSON: {e}")
+        return {}
 
 def _coerce_json(s: str) -> dict:
     """Back-compat: studio.api импортирует эту функцию.
@@ -92,28 +138,79 @@ SYSTEM_NEWS = (
     "Ты должен генерировать новость. Не генерируй просто пустой <div/>."
 )
 
+# def generate_news_json(html: str, url: str, target_lang: str = "ru") -> Dict[str, Any]:
+#     """
+#     Принимает HTML/текст и URL источника.
+#     Возвращает: {title, lead, body_html, tags}
+#     """
+#     user = (
+#         f"Сгенерируй новость на {target_lang}.\n"
+#         f"Источник: {url}\n"
+#         "Вход ниже (HTML/текст, можно использовать только релевантное):\n"
+#         f"{(html or '')[:30000]}"
+#     )
+
+#     resp = client.chat.completions.create(
+#         model=LLM_MODEL,
+#         messages=[{"role":"system","content":SYSTEM_NEWS},
+#                 {"role":"user","content":user}],
+#         temperature=0.2,
+#         max_tokens=1800,
+#         response_format={"type":"json_object"},
+#         extra_body={"format":"json"},
+#     )
+#     raw = resp.choices[0].message.content or "{}"
+#     data = _json_loads_loose(raw)
+
+#     out = {
+#         "title": (data.get("title") or "").strip(),
+#         "lead": (data.get("lead") or "").strip(),
+#         "body_html": (data.get("body_html") or "").strip(),
+#         "tags": data.get("tags") or [],
+#     }
+#     if isinstance(out["tags"], str):
+#         out["tags"] = [t.strip() for t in out["tags"].split(",") if t.strip()]
+
+#     if not out["body_html"]:
+#         out["body_html"] = f"<p><a href=\"{url}\">Источник</a></p>"
+
+#     print(1, out["body_html"])
+#     return out
+
 def generate_news_json(html: str, url: str, target_lang: str = "ru") -> Dict[str, Any]:
     """
     Принимает HTML/текст и URL источника.
-    Возвращает: {title, lead, body_html, tags}
+    Возвращает: {title, lead, body_html, tags} через Gemini
     """
-    user = (
-        f"Сгенерируй новость на {target_lang}.\n"
-        f"Источник: {url}\n"
-        "Вход ниже (HTML/текст, можно использовать только релевантное):\n"
+    
+    # Формируем промпт для Gemini
+    # Мы объединяем системную роль и данные пользователя для лучшего результата
+    user_prompt = (
+        f"{SYSTEM_NEWS}\n\n"
+        f"ЗАДАНИЕ: Сгенерируй новость на языке: {target_lang}.\n"
+        f"Источник (URL): {url}\n"
+        "Входные данные (HTML/текст):\n"
         f"{(html or '')[:30000]}"
     )
 
-    resp = client.chat.completions.create(
-        model=LLM_MODEL,
-        messages=[{"role":"system","content":SYSTEM_NEWS},
-                {"role":"user","content":user}],
-        temperature=0.2,
-        max_tokens=1800,
-        response_format={"type":"json_object"},
-        extra_body={"format":"json"},
-    )
-    raw = resp.choices[0].message.content or "{}"
+    try:
+        # Вызов Gemini
+        # Предполагается, что gemini_model = genai.GenerativeModel('gemini-1.5-flash')
+        resp = model.generate_content(
+            user_prompt,
+            generation_config=genai.GenerationConfig(
+                response_mime_type="application/json",
+                temperature=0.2,
+                max_output_tokens=2048,
+            ),
+        )
+        
+        raw = resp.text or "{}"
+    except Exception as e:
+        print(f"Ошибка Gemini при генерации новости: {e}")
+        raw = "{}"
+
+    # Используем вашу обновленную функцию парсинга (которую мы правили выше)
     data = _json_loads_loose(raw)
 
     out = {
@@ -122,9 +219,12 @@ def generate_news_json(html: str, url: str, target_lang: str = "ru") -> Dict[str
         "body_html": (data.get("body_html") or "").strip(),
         "tags": data.get("tags") or [],
     }
+
+    # Обработка тегов, если модель вернула их строкой
     if isinstance(out["tags"], str):
         out["tags"] = [t.strip() for t in out["tags"].split(",") if t.strip()]
 
+    # Запасной вариант для тела статьи
     if not out["body_html"]:
         out["body_html"] = f"<p><a href=\"{url}\">Источник</a></p>"
 
@@ -159,8 +259,53 @@ _ACTION_SYSTEM = (
     "Без комментариев и бэктиков — только JSON-объект."
 )
 
-MODEL = LLM_MODEL
+# MODEL = LLM_MODEL
 SYS_EDITOR = _ACTION_SYSTEM
+
+# def prompt_action_json(
+#     action: str,
+#     title: str,
+#     lead: str,
+#     body_html: str,
+#     target_lang: str = "ru",
+# ) -> Dict[str, str]:
+#     """
+#     Выполняет действие над текстом (improve/shorten/expand/regenerate) и
+#     возвращает словарь: {"lead": str, "body_html": str}
+#     """
+#     action = (action or "").lower().strip()
+#     instruction = _ACTION_PROMPTS.get(action, _ACTION_PROMPTS["improve"])
+
+#     user = (
+#         f"ACTION: {action}\n"
+#         f"TARGET_LANG: {target_lang}\n\n"
+#         f"TITLE:\n{title or ''}\n\n"
+#         f"LEAD:\n{lead or ''}\n\n"
+#         "BODY_HTML:\n"
+#         f"{(body_html or '')[:28000]}"
+#     )
+
+#     resp = client.chat.completions.create(
+#         model=LLM_MODEL,
+#         messages=[
+#             {"role": "system", "content": _ACTION_SYSTEM},
+#             {"role": "user", "content": instruction + "\n\n" + user},
+#         ],
+#         temperature=0.2,
+#         max_tokens=2000,
+#         response_format={"type": "json_object"},
+#         extra_body={"format": "json"},
+#     )
+#     raw = resp.choices[0].message.content or "{}"
+#     data = _json_loads_loose(raw)
+
+#     out = {
+#         "lead": (data.get("lead") or lead or "").strip(),
+#         "body_html": (data.get("body_html") or body_html or "").strip(),
+#     }
+#     if not out["body_html"]:
+#         out["body_html"] = (body_html or lead or title or "").strip() or "<p></p>"
+#     return out
 
 def prompt_action_json(
     action: str,
@@ -170,13 +315,16 @@ def prompt_action_json(
     target_lang: str = "ru",
 ) -> Dict[str, str]:
     """
-    Выполняет действие над текстом (improve/shorten/expand/regenerate) и
-    возвращает словарь: {"lead": str, "body_html": str}
+    Выполняет действие над текстом (improve/shorten/expand/regenerate) через Gemini
+    и возвращает словарь: {"lead": str, "body_html": str}
     """
     action = (action or "").lower().strip()
     instruction = _ACTION_PROMPTS.get(action, _ACTION_PROMPTS["improve"])
 
-    user = (
+    # Формируем единый промпт для Gemini
+    user_query = (
+        f"{_ACTION_SYSTEM}\n\n"
+        f"ИНСТРУКЦИЯ: {instruction}\n\n"
         f"ACTION: {action}\n"
         f"TARGET_LANG: {target_lang}\n\n"
         f"TITLE:\n{title or ''}\n\n"
@@ -185,26 +333,33 @@ def prompt_action_json(
         f"{(body_html or '')[:28000]}"
     )
 
-    resp = client.chat.completions.create(
-        model=LLM_MODEL,
-        messages=[
-            {"role": "system", "content": _ACTION_SYSTEM},
-            {"role": "user", "content": instruction + "\n\n" + user},
-        ],
-        temperature=0.2,
-        max_tokens=2000,
-        response_format={"type": "json_object"},
-        extra_body={"format": "json"},
-    )
-    raw = resp.choices[0].message.content or "{}"
+    try:
+        # Вызов Gemini API
+        resp = model.generate_content(
+            user_query,
+            generation_config=genai.GenerationConfig(
+                response_mime_type="application/json",
+                temperature=0.2,
+                max_output_tokens=2500,
+            ),
+        )
+        raw = resp.text or "{}"
+    except Exception as e:
+        print(f"Ошибка Gemini в prompt_action_json: {e}")
+        raw = "{}"
+
+    # Используем вашу функцию _json_loads_loose (которую мы обновили под Gemini выше)
     data = _json_loads_loose(raw)
 
     out = {
         "lead": (data.get("lead") or lead or "").strip(),
         "body_html": (data.get("body_html") or body_html or "").strip(),
     }
+
+    # Если вдруг тело пустое, возвращаем оригинал
     if not out["body_html"]:
         out["body_html"] = (body_html or lead or title or "").strip() or "<p></p>"
+
     return out
 
 prompt_action = prompt_action_json
